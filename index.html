@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>SNAAAAAAKE</title>
+    <link href="https://fonts.googleapis.com/css?family=Press+Start+2P" rel="stylesheet">
+    <link rel="stylesheet" href="css/main.css">
+</head>
+<body>
+    <div id="app">
+        <div class="ready" 
+        v-if="situation == 'ready'"
+        @keydown="play">
+            <div class="content">
+                <h1>SNAAAAAAKE</h1>
+                <p>PRESS [SPACE] TO START</p>    
+            </div>
+            
+        </div>
+        <div class="play"v-else-if="situation == 'playing'">
+            <div class="board" >
+                <div class="row" v-for="i in 16" :key="i">
+                    <div class="lattice" v-for="j in 28" :key='j'>
+                        <div></div>
+                    </div>
+                </div>
+                <div class="text-lt">SNAA</div>
+                <div class="text-tl">AAAAKE</div>
+                <div class="text-rb">SNAA</div>
+                <div class="text-br">AAAAKE</div>
+                <div class="score">
+                    <span>score</span>
+                    <em>{{ score }}</em>
+                </div>
+                <div class="best">
+                    <span>best</span>
+                    {{ best }}
+                </div>
+            </div>
+        </div>
+        <div class="endding" v-else>
+            <div class="content">
+                <h1>GAME OVER</h1>
+                <div class="scoreboard">
+                    <div>
+                        <h3>score</h3>
+                        <em>{{ score }}</em>
+                    </div>
+                    <p>/</p>
+                    <div>
+                        <h3>best</h3>
+                        <em>{{ best }}</em>
+                    </div>
+                </div>
+                <div class="restart"><h2>RESTART?</h2></div>
+                <div class="answer">
+                    <h2>YES[Y]</h2>
+                    <h2>NO[N]</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+</body>
+<script>
+let app = new Vue({
+    el: '#app',
+    data: {
+        interval: 0,
+        score: 0,
+        best: 0,
+        snakeSpeed: 300,
+        direction: '',
+        situation: 'ready',
+        alive: true,
+        positionRecord: [],
+        pointPosition: {
+            x: 0,
+            y: 0
+        },
+    },
+    methods: {
+        start(e) {
+            let vm = this;
+            if(e.keyCode == 32) {
+                vm.situation = 'playing';
+                vm.$nextTick(() => {
+                    document.querySelector('body').onkeydown = this.play;
+                    vm.positionRecord = [
+                        {x: 14,
+                        y: 8}
+                    ];
+                    vm.score = 0;
+                    vm.snakeSpeed = 300;
+                    vm.alive = true;
+                    vm.drawSnake();
+                    vm.changeDirection([0,0]);
+                    vm.randomPoint(); 
+                })
+            }
+        },
+        play(e) {
+            let vm = this;
+            let snakeLength = vm.positionRecord.length;
+            switch(e.keyCode) {
+                case 37:
+                    if(snakeLength == 1 || vm.direction[0] != 1) {
+                        vm.changeDirection([-1, 0]);
+                    };
+                    break;
+                case 38:
+                    if(snakeLength == 1 || vm.direction[1] != 1) {
+                        vm.changeDirection([0, -1]);
+                    };
+                    break;
+                case 39:
+                    if(snakeLength == 1 || vm.direction[0] != -1) {
+                        vm.changeDirection([1, 0]);
+                    };
+                    break;
+                case 40:
+                    if(snakeLength == 1 || vm.direction[1] != -1) {
+                        vm.changeDirection([0, 1]);
+                    };
+                    break;
+            }
+        },
+        changeDirection(direction) {
+            let vm = this;
+            clearInterval(vm.interval);
+            if(vm.alive) {
+                vm.direction = direction;
+                vm.move(direction);
+                vm.interval = setInterval(() => {
+                    vm.move(direction);
+                }, vm.snakeSpeed);     
+            };
+        },
+        move(direction) {
+            let vm = this;
+            let snakeLength = vm.positionRecord.length;
+            let headPos = vm.positionRecord[snakeLength - 1];
+            let tailPos = vm.positionRecord[0];
+            document.querySelectorAll('.row')[tailPos.y].children[tailPos.x].children[0].style.backgroundColor = '';
+            let newHeadPos = {
+                x: (headPos.x + direction[0] + 28) % 28,
+                y: (headPos.y + direction[1] + 16) % 16,
+            };
+            vm.positionRecord.push(newHeadPos);
+            if(newHeadPos.x != vm.pointPosition.x || newHeadPos.y != vm.pointPosition.y) {
+                vm.positionRecord.splice(0, 1);
+            }else {
+                vm.score ++;
+                vm.cancelPoint();
+                vm.randomPoint();
+            };
+            vm.drawSnake();
+        },
+        drawSnake() {
+            let vm = this;
+            if(vm.alive) {
+                let rows = document.querySelectorAll('.row');
+                let snakeLength = vm.positionRecord.length;
+                for(i=0; i<snakeLength - 1; i++) {
+                    let opacity = (i+2) / snakeLength;
+                    rows[vm.positionRecord[i].y].children[vm.positionRecord[i].x].children[0].style.backgroundColor = `rgba(255, 255, 255, ${opacity})`;
+                };
+                rows[vm.positionRecord[snakeLength - 1].y].children[vm.positionRecord[snakeLength - 1].x].children[0].style.backgroundColor = '#00FFE2';
+                for(i=0; i<snakeLength-4; i++) {
+                    if(vm.positionRecord[snakeLength - 1].x == vm.positionRecord[i].x && vm.positionRecord[snakeLength - 1].y == vm.positionRecord[i].y) {
+                        vm.alive = false;
+                        rows[vm.positionRecord[snakeLength - 1].y].children[vm.positionRecord[snakeLength - 1].x].children[0].style.backgroundColor = '#ff7600';
+                        setTimeout(function() {
+                            vm.situation = 'end';
+                            if(vm.score > vm.best) {
+                                vm.best = vm.score;
+                                localStorage.setItem('bestScore', vm.best);
+                            };
+                            vm.$nextTick(function() {
+                                document.querySelector('body').onkeydown = vm.replay
+                            })
+                        }, 1500);
+                    }
+                };    
+            }else {
+                clearInterval(vm.interval);
+            }
+            
+        },
+        cancelPoint() {
+            let rows = document.querySelectorAll('.row');
+            rows[this.pointPosition.y].children[this.pointPosition.x].style.backgroundImage = '';
+            rows[this.pointPosition.y].children[this.pointPosition.x].style.backgroundColor = '';
+            for(i=1; i<8; i++) {
+                if(this.pointPosition.x - i >= 0 && this.pointPosition.x - i <= 27) {
+                    rows[this.pointPosition.y].children[this.pointPosition.x - i].style.backgroundColor = '';
+                };
+                if(this.pointPosition.x + i >= 0 && this.pointPosition.x + i <= 27) {
+                    rows[this.pointPosition.y].children[this.pointPosition.x + i].style.backgroundColor = '';
+                };
+                if(this.pointPosition.y - i >= 0 && this.pointPosition.y - i <= 15) {
+                    rows[this.pointPosition.y - i].children[this.pointPosition.x].style.backgroundColor = '';
+                };
+                if(this.pointPosition.y + i >= 0 && this.pointPosition.y + i <= 15) {
+                    rows[this.pointPosition.y + i].children[this.pointPosition.x].style.backgroundColor = '';
+                };
+            };
+        },
+        randomPoint() {
+            let rows = document.querySelectorAll('.row');
+            let randomX = Math.floor(Math.random() * 28);
+            let randomY = Math.floor(Math.random() * 16);
+            let newPoint = true;
+            let snakeLength =  this.positionRecord.length;
+            for(i=0; i<snakeLength; i++) {
+                if(randomX == this.positionRecord[i].x && randomY == this.positionRecord[i].y) {
+                    newPoint = false;
+                    break;
+                }
+            };
+            if(newPoint) {
+                rows[randomY].children[randomX].style.backgroundImage = 'url("image/ic-point.svg")';
+                rows[randomY].children[randomX].style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                for(i=1; i<8; i++) {
+                    let opacity = (1 - (i)/8) * 0.2;
+                    if(randomX - i >= 0 && randomX - i <= 27) {
+                        rows[randomY].children[randomX - i].style.backgroundColor = `rgba(255, 255, 255, ${opacity})`;
+                    };
+                    if(randomX + i >= 0 && randomX + i <= 27) {
+                        rows[randomY].children[randomX + i].style.backgroundColor = `rgba(255, 255, 255, ${opacity})`;
+                    };
+                    if(randomY - i >= 0 && randomY - i <= 15) {
+                        rows[randomY - i].children[randomX].style.backgroundColor = `rgba(255, 255, 255, ${opacity})`;
+                    };
+                    if(randomY + i >= 0 && randomY + i <= 15) {
+                        rows[randomY + i].children[randomX].style.backgroundColor = `rgba(255, 255, 255, ${opacity})`;
+                    };
+                };
+                this.pointPosition = {
+                    x: randomX,
+                    y: randomY
+                };
+            }else {
+                this.randomPoint();
+            };
+        },
+        replay(e) {
+            let vm = this;
+            if(e.keyCode == 89) {
+                vm.situation = 'playing';
+                vm.$nextTick(() => {
+                    document.querySelector('body').onkeydown = this.play;
+                    vm.positionRecord = [
+                        {x: 14,
+                        y: 8}
+                    ];
+                    vm.score = 0;
+                    vm.snakeSpeed = 300;
+                    vm.alive = true;
+                    vm.drawSnake();
+                    vm.changeDirection([0,0]);
+                    vm.randomPoint(); 
+                })
+            }else if(e.keyCode == 78) {
+                vm.situation = 'ready';
+                vm.$nextTick(() => {
+                    document.querySelector('body').onkeydown = this.start;
+                })
+            }
+        }
+    },
+    watch: {
+        score: function() {
+            if(this.score >= 60) {
+                this.snakeSpeed = 20;
+            }else if(this.score >= 45) {
+                this.snakeSpeed = 40;
+            }else if(this.score >= 30) {
+                this.snakeSpeed = 70;
+            }else if(this.score >= 20) {
+                this.snakeSpeed = 100;
+            }else if(this.score >= 10) {
+                this.snakeSpeed = 150;
+            }else if(this.score >= 5) {
+                this.snakeSpeed = 200;
+            }
+        }
+    },
+    created() {
+        document.querySelector('body').onkeydown = this.start
+        if(localStorage.getItem('bestScore') != null) {
+            this.best = localStorage.getItem('bestScore')
+        }
+    },
+})
+</script>
+</html>
